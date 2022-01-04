@@ -40,21 +40,49 @@ int main()
     //4、accept
     struct sockaddr_in clientAddr = {};
     socklen_t nAddrLen = sizeof(sockaddr_in);
-    char msgBuf[] = "Hello, I'm Server.";
-    while(true)
-    {
+    
+    
         int clientsockfd = accept(sockfd, (struct sockaddr *)&clientAddr, &nAddrLen);
         if(clientsockfd < 0)
         {
             printf("错误，接受到无效客户端！\n");
         }
         printf("新客户端加入：IP = %s \n", inet_ntoa(clientAddr.sin_addr));
-        //5、send
-        send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0);        
+    
+    while(true)
+    {
+        //5.recv 
+        char recvBuf[128] = {};
+        int nLen = recv(clientsockfd, recvBuf, 128, 0);
+        if(nLen < 0)
+        {
+            printf("客户端已退出，任务结束.");
+        }
+        //6、处理请求
+        if(0 == strcmp(recvBuf, "getName"))
+        {
+            printf("收到命令：%s\n", recvBuf);
+            char msgBuf[] = "clementine";
+            send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0);
+        }
+        else if(0 == strcmp(recvBuf, "getAge"))
+        {
+            printf("收到命令：%s\n", recvBuf);   
+            char msgBuf[] = "27";
+            send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0);
+        }
+        else
+        {
+            printf("收到无效命令： %s\n", recvBuf);
+            char msgBuf[] = "???";
+            send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0); 
+        }
+               
     }
 
-    //6、close
+    //7、close
     close(sockfd);
+    printf("已退出，任务结束！\n");
     return 0;
 
 }
