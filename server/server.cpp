@@ -10,7 +10,9 @@
 enum  CMD
 {
     CMD_LOGIN,
+    CMD_LOGIN_RESULT,
     CMD_LOGOUT,
+    CMD_LOGOUT_RESULT,
     CMD_ERROR
 };
 
@@ -21,27 +23,49 @@ struct DataHeader
     short cmd;//命令
 };
 //登录
-struct Login
+struct Login:public DataHeader
 {
+    Login()
+    {
+        dataLength = sizeof(Login);
+        cmd = CMD_LOGIN;
+    }
     /* data */
     char userName[32];
     char PassWord[32];
 };
 //登录结果
-struct LoginResult
+struct LoginResult:public DataHeader
 {
+    LoginResult()
+    {
+        dataLength = sizeof(LoginResult);
+        cmd = CMD_LOGIN_RESULT;
+        result = 0;
+    }
     /* data */
     int result;
 };
 //登出
-struct Logout
+struct Logout:public DataHeader
 {
+    Logout()
+    {
+        dataLength = sizeof(Logout);
+        cmd = CMD_LOGOUT;
+    }
     /* data */
     char userName[32];
 };
 //登出结果
-struct LogoutResult
+struct LogoutResult:public DataHeader
 {
+    LogoutResult()
+    {
+        dataLength = sizeof(LogoutResult);
+        cmd = CMD_LOGOUT_RESULT;
+        result = 1;
+    }
     /* data */
     int result;
 };
@@ -99,27 +123,29 @@ int main()
         {
             printf("客户端已退出，任务结束.");
         }
-        printf("收到命令： %d 数据长度： %d\n", header.cmd, header.dataLength);
+        // printf("收到命令： %d 数据长度： %d\n", header.cmd, header.dataLength);
         switch(header.cmd)
         {
             case CMD_LOGIN:
                 {
                     Login login = {};
-                    recv(clientsockfd, (char *)&login, sizeof(Login), 0);
+                    recv(clientsockfd, (char *)&login+sizeof(DataHeader), sizeof(Login)-sizeof(DataHeader), 0);
+                    printf("收到命令: CMD_LOGIN 数据长度: %d UerName: %s PassWord: %s\n", login.dataLength, login.userName, login.PassWord);
                     //忽略判断用户信息的正确性
-                    LoginResult ret = {0};
-                    send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
+                    LoginResult ret;
+                    // send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
                     send(clientsockfd, (const char *)&ret, sizeof(LoginResult), 0);             
                     break;
                 }         
 
             case CMD_LOGOUT:            
                     {
-                        Login logout = {};
-                        recv(clientsockfd, (char *)&logout, sizeof(Logout), 0);
+                        Logout logout = {};
+                        recv(clientsockfd, (char *)&logout+sizeof(DataHeader), sizeof(Logout)-sizeof(DataHeader), 0);
+                        printf("收到命令: CMD_LOGOUT 数据长度: %d UserName: %s\n", logout.dataLength, logout.userName);
                         //忽略判断用户信息的正确性
-                        LogoutResult ret = {1};
-                        send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
+                        LogoutResult ret;
+                        //  send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
                         send(clientsockfd, (const char *)&ret, sizeof(LogoutResult), 0);            
                         break;
                     }

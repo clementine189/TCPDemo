@@ -11,7 +11,9 @@
 enum  CMD
 {
     CMD_LOGIN,
+    CMD_LOGIN_RESULT,
     CMD_LOGOUT,
+    CMD_LOGOUT_RESULT,
     CMD_ERROR
 };
 
@@ -22,27 +24,49 @@ struct DataHeader
     short cmd;//命令
 };
 //登录
-struct Login
+struct Login:public DataHeader
 {
+    Login()
+    {
+        dataLength = sizeof(Login);
+        cmd = CMD_LOGIN;
+    }
     /* data */
     char userName[32];
     char PassWord[32];
 };
 //登录结果
-struct LoginResult
+struct LoginResult:public DataHeader
 {
+    LoginResult()
+    {
+        dataLength = sizeof(LoginResult);
+        cmd = CMD_LOGIN_RESULT;
+        result = 0;
+    }
     /* data */
     int result;
 };
 //登出
-struct Logout
+struct Logout:public DataHeader
 {
+    Logout()
+    {
+        dataLength = sizeof(Logout);
+        cmd = CMD_LOGOUT;
+    }
     /* data */
     char userName[32];
 };
 //登出结果
-struct LogoutResult
+struct LogoutResult:public DataHeader
 {
+    LogoutResult()
+    {
+        dataLength = sizeof(LogoutResult);
+        cmd = CMD_LOGOUT_RESULT;
+        result = 1;
+    }
     /* data */
     int result;
 };
@@ -81,27 +105,24 @@ int main()
         {
             //5、向服务器发送登入请求命令
             
-            Login login = {"clementine", "123456"};
-            DataHeader header = {sizeof(login),CMD_LOGIN};
-            send(sockfd, (const char*)&header, sizeof(DataHeader), 0);
+            Login login;// = {"clementine", "123456"};
+            strcpy(login.userName, "clementine");
+            strcpy(login.PassWord, "123456");
             send(sockfd, (const char*)&login, sizeof(Login), 0);
 
             //6、接收服务器返回数据
             LoginResult loginret = {};
-            recv(sockfd, (char*)&header, sizeof(DataHeader), 0);
             recv(sockfd, (char*)&loginret, sizeof(LoginResult), 0);
             printf("LoginResult: %d\n", loginret.result);
 
         }
         else if(0 == strcmp(cmdBuf,"logout"))
         {   //5、向服务器发送登出请求命令
-            Logout logout = {"clementine"};
-            DataHeader header = {sizeof(logout), CMD_LOGOUT};
-            send(sockfd, (const char*)&header, sizeof(DataHeader), 0);
+            Logout logout;// = {"clementine"};
+            strcpy(logout.userName, "clementine");
             send(sockfd, (const char*)&logout, sizeof(Logout), 0);
             //6、接收服务器返回数据
             LogoutResult logoutret = {};
-            recv(sockfd, (char*)&header, sizeof(DataHeader), 0);
             recv(sockfd, (char*)&logoutret, sizeof(LogoutResult), 0);
             printf("LogoutResult: %d\n", logoutret.result);
         }
