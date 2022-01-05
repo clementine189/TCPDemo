@@ -8,6 +8,44 @@
 #include <sys/ioctl.h>
 #include <errno.h>
 
+enum  CMD
+{
+    CMD_LOGIN,
+    CMD_LOGOUT,
+    CMD_ERROR
+};
+
+//消息头
+struct DataHeader
+{
+    short dataLength;//数据长度
+    short cmd;//命令
+};
+//登录
+struct Login
+{
+    /* data */
+    char userName[32];
+    char PassWord[32];
+};
+//登录结果
+struct LoginResult
+{
+    /* data */
+    int result;
+};
+//登出
+struct Logout
+{
+    /* data */
+    char userName[32];
+};
+//登出结果
+struct LogoutResult
+{
+    /* data */
+    int result;
+};
 int main()
 {
     //1、建立一个socket
@@ -33,24 +71,54 @@ int main()
     {
         //3、输入请求
         scanf("%s",cmdBuf);
+
         //4、处理请求命令
         if(0 == strcmp(cmdBuf,"exit"))
         {
             break;
         }
+        else if(0 == strcmp(cmdBuf,"login"))
+        {
+            //5、向服务器发送登入请求命令
+            
+            Login login = {"clementine", "123456"};
+            DataHeader header = {sizeof(login),CMD_LOGIN};
+            send(sockfd, (const char*)&header, sizeof(DataHeader), 0);
+            send(sockfd, (const char*)&login, sizeof(Login), 0);
+
+            //6、接收服务器返回数据
+            LoginResult loginret = {};
+            recv(sockfd, (char*)&header, sizeof(DataHeader), 0);
+            recv(sockfd, (char*)&loginret, sizeof(LoginResult), 0);
+            printf("LoginResult: %d\n", loginret.result);
+
+        }
+        else if(0 == strcmp(cmdBuf,"logout"))
+        {   //5、向服务器发送登出请求命令
+            Logout logout = {"clementine"};
+            DataHeader header = {sizeof(logout), CMD_LOGOUT};
+            send(sockfd, (const char*)&header, sizeof(DataHeader), 0);
+            send(sockfd, (const char*)&logout, sizeof(Logout), 0);
+            //6、接收服务器返回数据
+            LogoutResult logoutret = {};
+            recv(sockfd, (char*)&header, sizeof(DataHeader), 0);
+            recv(sockfd, (char*)&logoutret, sizeof(LogoutResult), 0);
+            printf("LogoutResult: %d\n", logoutret.result);
+        }
         else
         {
-            //5、向服务器发送请求命令
-            send(sockfd, cmdBuf, strlen(cmdBuf)+1, 0);
+            printf("不支持的命令，请重新输入。 \n");
         }
     
         //6、recv
-        char recvBuf[128];
-        int nrecv = recv(sockfd, recvBuf, 128, 0);        
-        if(nrecv > 0)
-        {
-            printf("接收到数据：%s \n", recvBuf);
-        }
+        
+        // int nrecv = recv(sockfd, (char *)&header, sizeof(DataHeader), 0);        
+        // if(nrecv > 0)
+        // {
+        //     DataPackage* dp = (DataPackage*)recvBuf; 
+        //     printf("接收到数据：年龄： %d ,姓名： %s \n", dp->age, dp->name);
+        // }
+
     }
     //7、close
     close(sockfd);
