@@ -7,6 +7,70 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+enum  CMD
+{
+    CMD_LOGIN,
+    CMD_LOGIN_RESULT,
+    CMD_LOGOUT,
+    CMD_LOGOUT_RESULT,
+    CMD_ERROR
+};
+
+//消息头
+struct DataHeader
+{
+    short dataLength;//数据长度
+    short cmd;//命令
+};
+//登录
+struct Login:public DataHeader
+{
+    Login()
+    {
+        dataLength = sizeof(Login);
+        cmd = CMD_LOGIN;
+    }
+    /* data */
+    char userName[32];
+    char PassWord[32];
+};
+//登录结果
+struct LoginResult:public DataHeader
+{
+    LoginResult()
+    {
+        dataLength = sizeof(LoginResult);
+        cmd = CMD_LOGIN_RESULT;
+        result = 0;
+    }
+    /* data */
+    int result;
+};
+//登出
+struct Logout:public DataHeader
+{
+    Logout()
+    {
+        dataLength = sizeof(Logout);
+        cmd = CMD_LOGOUT;
+    }
+    /* data */
+    char userName[32];
+};
+//登出结果
+struct LogoutResult:public DataHeader
+{
+    LogoutResult()
+    {
+        dataLength = sizeof(LogoutResult);
+        cmd = CMD_LOGOUT_RESULT;
+        result = 1;
+    }
+    /* data */
+    int result;
+};
+
+
 
 int main()
 {
@@ -52,31 +116,64 @@ int main()
     while(true)
     {
         //5.recv 
-        char recvBuf[128] = {};
-        int nLen = recv(clientsockfd, recvBuf, 128, 0);
+        DataHeader header = {};
+        //char recvBuf[128] = {};
+        int nLen = recv(clientsockfd, (char *)&header, sizeof(DataHeader), 0);
         if(nLen < 0)
         {
             printf("客户端已退出，任务结束.");
         }
-        //6、处理请求
-        if(0 == strcmp(recvBuf, "getName"))
+        // printf("收到命令： %d 数据长度： %d\n", header.cmd, header.dataLength);
+        switch(header.cmd)
         {
-            printf("收到命令：%s\n", recvBuf);
-            char msgBuf[] = "clementine";
-            send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0);
+            case CMD_LOGIN:
+                {
+                    Login login = {};
+                    recv(clientsockfd, (char *)&login+sizeof(DataHeader), sizeof(Login)-sizeof(DataHeader), 0);
+                    printf("收到命令: CMD_LOGIN 数据长度: %d UerName: %s PassWord: %s\n", login.dataLength, login.userName, login.PassWord);
+                    //忽略判断用户信息的正确性
+                    LoginResult ret;
+                    // send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
+                    send(clientsockfd, (const char *)&ret, sizeof(LoginResult), 0);             
+                    break;
+                }         
+
+            case CMD_LOGOUT:            
+                    {
+                        Logout logout = {};
+                        recv(clientsockfd, (char *)&logout+sizeof(DataHeader), sizeof(Logout)-sizeof(DataHeader), 0);
+                        printf("收到命令: CMD_LOGOUT 数据长度: %d UserName: %s\n", logout.dataLength, logout.userName);
+                        //忽略判断用户信息的正确性
+                        LogoutResult ret;
+                        //  send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
+                        send(clientsockfd, (const char *)&ret, sizeof(LogoutResult), 0);            
+                        break;
+                    }
+            default:            
+                    {                
+                        header.cmd = CMD::CMD_ERROR;
+                        header.dataLength = 0;
+                        send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
+                    
+                        break;
+                    }
+
         }
-        else if(0 == strcmp(recvBuf, "getAge"))
-        {
-            printf("收到命令：%s\n", recvBuf);   
-            char msgBuf[] = "27";
-            send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0);
-        }
-        else
-        {
-            printf("收到无效命令： %s\n", recvBuf);
-            char msgBuf[] = "???";
-            send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0); 
-        }
+        // //6、处理请求
+
+        // if(0 == strcmp(recvBuf, "getInfo"))
+        // {
+        //     printf("收到命令：%s\n", recvBuf);
+        //     DataPackage dp = {27, "clementine"};
+            
+        //     send(clientsockfd, (const char *)&dp, sizeof(DataPackage), 0);
+        // }
+        // else
+        // {
+        //     printf("收到无效命令： %s\n", recvBuf);
+        //     char msgBuf[] = "???";
+        //     send(clientsockfd, msgBuf, strlen(msgBuf)+1, 0); 
+        // }
                
     }
 
