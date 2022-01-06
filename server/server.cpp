@@ -16,6 +16,7 @@ enum  CMD
     CMD_LOGIN_RESULT,
     CMD_LOGOUT,
     CMD_LOGOUT_RESULT,
+    CMD_NEW_USER_JION,
     CMD_ERROR
 };
 
@@ -72,6 +73,18 @@ struct LogoutResult:public DataHeader
     /* data */
     int result;
 };
+//新用户加入
+struct NewUserJion: public DataHeader
+{
+    /* data */
+    NewUserJion()
+    {
+        dataLength = sizeof(NewUserJion);
+        cmd = CMD_NEW_USER_JION;
+        sock = 0;
+    }
+    int sock;
+};
 
 //客户端socket
 std::vector<int> g_clients;
@@ -79,44 +92,45 @@ std::vector<int> g_clients;
 int processor(int clientsockfd)
 {
     //5.recv 
-    DataHeader header = {};
-    int nLen = recv(clientsockfd, (char *)&header, sizeof(DataHeader), 0);
+    char recvBuf[4096] = {};
+    
+    int nLen = recv(clientsockfd, recvBuf, sizeof(DataHeader), 0);
+    DataHeader* header = (DataHeader*)recvBuf;
     if(nLen <= 0)
     {
-        printf("客户端已退出，任务结束.\n");
+        printf("客户端<socket: %d>已退出，任务结束.\n", clientsockfd);
         //有客户端退出，返回-1，交给主函数处理
         return -1;
         
     }
-    switch(header.cmd)
+    switch(header->cmd)
     {
         case CMD_LOGIN:
             {
-                Login login = {};
-                recv(clientsockfd, (char *)&login+sizeof(DataHeader), sizeof(Login)-sizeof(DataHeader), 0);
-                printf("收到命令: CMD_LOGIN 数据长度: %d UerName: %s PassWord: %s\n", login.dataLength, login.userName, login.PassWord);
+                
+                recv(clientsockfd, recvBuf+sizeof(DataHeader), header->dataLength - sizeof(DataHeader), 0);
+                Login *login = (Login*)recvBuf;
+                printf("收到客户端<socket: %d>命令: CMD_LOGIN 数据长度: %d UserName: %s PassWord: %s\n", clientsockfd, login->dataLength, login->userName, login->PassWord);
                 //忽略判断用户信息的正确性
                 LoginResult ret;
-                // send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
                 send(clientsockfd, (const char *)&ret, sizeof(LoginResult), 0);             
                 break;
             }         
 
         case CMD_LOGOUT:            
             {
-                Logout logout = {};
-                recv(clientsockfd, (char *)&logout+sizeof(DataHeader), sizeof(Logout)-sizeof(DataHeader), 0);
-                printf("收到命令: CMD_LOGOUT 数据长度: %d UserName: %s\n", logout.dataLength, logout.userName);
+                recv(clientsockfd, recvBuf+sizeof(DataHeader), header->dataLength-sizeof(DataHeader), 0);
+                Logout *logout = (Logout*)recvBuf;
+                printf("收到客户端<socket: %d>命令: CMD_LOGOUT 数据长度: %d UserName: %s\n", clientsockfd, logout->dataLength, logout->userName);
                 //忽略判断用户信息的正确性
                 LogoutResult ret;
-                //  send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
                 send(clientsockfd, (const char *)&ret, sizeof(LogoutResult), 0);            
                 break;
             }
         default:            
             {                
-                header.cmd = CMD::CMD_ERROR;
-                header.dataLength = 0;
+                header->cmd = CMD_ERROR;
+                header->dataLength = 0;
                 send(clientsockfd, (const char *)&header, sizeof(DataHeader), 0);
                 
                 break;
@@ -176,7 +190,7 @@ int main()
             //把这些客户端放入可读事件查询集中
             FD_SET(g_clients[i], &fdRead);
         }
-        
+
         //非阻塞模式
         timeval t = {0, 0};
         //nfds是一个整数值，是指fd_set集合中所有描述符
@@ -186,7 +200,7 @@ int main()
             printf("select任务结束。 \n");
             break;
         }
-        //可读事件
+        //可读事件,判断描述符是否在集合中
         if(FD_ISSET(sockfd, &fdRead))
         {
             FD_CLR(sockfd, &fdRead);
@@ -202,8 +216,20 @@ int main()
             {
                 printf("错误，接受到无效客户端！\n");
             }
-            g_clients.push_back(clientsockfd);
-            printf("新客户端加入：IP = %s \n", inet_ntoa(clientAddr.sin_addr));  
+            else
+            {
+                //向所有其他客户端发送新加入客户端的信息
+                for(int i = 0; i < g_clients.size(); ++i)
+                {
+                    
+                    NewUserJion userJion;
+                    userJion.sock = clientsockfd;
+                    send(g_clients[i], (const char*)&userJion, sizeof(NewUserJion), 0);
+                }
+
+                g_clients.push_back(clientsockfd);
+                printf("新客户端加入：IP = %s \n", inet_ntoa(clientAddr.sin_addr));                  
+            }        
         }
         for(int i = 0; i <= maxfd; ++i)
         {
@@ -217,6 +243,8 @@ int main()
                 }
             }
         }
+
+        printf("空闲时间处理其他业务...\n");
     }
 
     for(int i = 0; i < g_clients.size(); ++i)
