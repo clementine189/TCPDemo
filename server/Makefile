@@ -1,4 +1,4 @@
 server:
-	g++ -o server.o server.cpp
+	g++ -g -o server.o server.cpp
 clean:
 	rm -rf *.o

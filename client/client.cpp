@@ -14,6 +14,7 @@ enum  CMD
     CMD_LOGIN_RESULT,
     CMD_LOGOUT,
     CMD_LOGOUT_RESULT,
+    CMD_NEW_USER_JION,
     CMD_ERROR
 };
 
@@ -70,10 +71,67 @@ struct LogoutResult:public DataHeader
     /* data */
     int result;
 };
+
+//新用户加入
+struct NewUserJion: public DataHeader
+{
+    /* data */
+    NewUserJion()
+    {
+        dataLength = sizeof(NewUserJion);
+        cmd = CMD_NEW_USER_JION;
+        sock = 0;
+    }
+    int sock;
+};
+
+int processor(int sockfd)
+{
+    //5.recv 
+    char recvBuf[4096] = {};
+    int nLen = recv(sockfd, recvBuf, sizeof(DataHeader), 0);
+    DataHeader* header = (DataHeader*)recvBuf;
+    if(nLen <= 0)
+    {
+        printf("与服务器断开连接，任务结束.\n");
+        //有客户端退出，返回-1，交给主函数处理
+        return -1;
+        
+    }
+    switch(header->cmd)
+    {
+        case CMD_LOGIN_RESULT:
+        {
+            recv(sockfd, recvBuf+sizeof(DataHeader), header->dataLength-sizeof(DataHeader), 0);
+            LoginResult *loginret = (LoginResult*) recvBuf;
+            printf("收到服务端消息: CMD_LOGIN_RESULT 数据长度: %d\n", loginret->dataLength);
+            break;
+        }         
+
+        case CMD_LOGOUT_RESULT:            
+        {
+            recv(sockfd, recvBuf+sizeof(DataHeader), header->dataLength-sizeof(DataHeader), 0);
+            LogoutResult *logoutret = (LogoutResult*)recvBuf;
+            printf("收到服务端消息: CMD_LOGOUT_RESULT 数据长度: %d \n", logoutret->dataLength);
+            break;
+        }
+        case CMD_NEW_USER_JION:
+        {
+            recv(sockfd, recvBuf+sizeof(DataHeader), header->dataLength-sizeof(DataHeader), 0);
+            NewUserJion *userjion = (NewUserJion*)recvBuf;
+            printf("收到服务端消息: CMD_NEW_USER_JION 数据长度: %d \n", userjion->dataLength);
+            break;
+        }
+        
+    }
+    return 0;               
+}
+
 int main()
 {
     //1、建立一个socket
     int sockfd = socket(PF_INET, SOCK_STREAM, 0);
+    int maxfd = sockfd;
     //2、connect
     const char* ip = "127.0.0.1";
     struct sockaddr_in serverAddr = {};
@@ -90,55 +148,37 @@ int main()
     {
         printf("连接成功！\n");
     }
-    char cmdBuf[128] = {};
+    
     while(true)
     {
-        //3、输入请求
-        scanf("%s",cmdBuf);
 
-        //4、处理请求命令
-        if(0 == strcmp(cmdBuf,"exit"))
+        fd_set fdRead;
+
+        FD_ZERO(&fdRead);
+ 
+        FD_SET(sockfd, &fdRead);
+
+        timeval t {1, 0};
+        int ret = select(maxfd + 1, &fdRead, 0, 0, &t);
+        if(ret < 0)
         {
+            printf("select任务结束1\n");
             break;
         }
-        else if(0 == strcmp(cmdBuf,"login"))
+        if(FD_ISSET(sockfd, &fdRead))
         {
-            //5、向服务器发送登入请求命令
-            
-            Login login;// = {"clementine", "123456"};
-            strcpy(login.userName, "clementine");
-            strcpy(login.PassWord, "123456");
-            send(sockfd, (const char*)&login, sizeof(Login), 0);
+            FD_CLR(sockfd, &fdRead);
 
-            //6、接收服务器返回数据
-            LoginResult loginret = {};
-            recv(sockfd, (char*)&loginret, sizeof(LoginResult), 0);
-            printf("LoginResult: %d\n", loginret.result);
-
+            if(-1 == processor(sockfd))
+            {
+                printf("select任务结束2\n");
+                break;
+            }
         }
-        else if(0 == strcmp(cmdBuf,"logout"))
-        {   //5、向服务器发送登出请求命令
-            Logout logout;// = {"clementine"};
-            strcpy(logout.userName, "clementine");
-            send(sockfd, (const char*)&logout, sizeof(Logout), 0);
-            //6、接收服务器返回数据
-            LogoutResult logoutret = {};
-            recv(sockfd, (char*)&logoutret, sizeof(LogoutResult), 0);
-            printf("LogoutResult: %d\n", logoutret.result);
-        }
-        else
-        {
-            printf("不支持的命令，请重新输入。 \n");
-        }
-    
-        //6、recv
-        
-        // int nrecv = recv(sockfd, (char *)&header, sizeof(DataHeader), 0);        
-        // if(nrecv > 0)
-        // {
-        //     DataPackage* dp = (DataPackage*)recvBuf; 
-        //     printf("接收到数据：年龄： %d ,姓名： %s \n", dp->age, dp->name);
-        // }
+        Login login;
+        strcpy(login.userName, "JMT");
+        strcpy(login.PassWord, "1234");
+        send(sockfd, (const char*)&login, sizeof(Login), 0);
 
     }
     //7、close
