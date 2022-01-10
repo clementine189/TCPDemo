@@ -192,7 +192,7 @@ int main()
         }
 
         //非阻塞模式
-        timeval t = {0, 0};
+        timeval t = {10, 0};
         //nfds是一个整数值，是指fd_set集合中所有描述符
         int ret = select(maxfd + 1, &fdRead, &fdWrite, &fdExp, &t);
         if(ret < 0)
