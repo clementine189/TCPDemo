@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <thread>
 
 enum  CMD
 {
@@ -127,6 +128,35 @@ int processor(int sockfd)
     return 0;               
 }
 
+bool g_bRun = true;
+void cmdThread(int sockfd)
+{
+    
+    while(1)
+    {
+        char cmdBuf[256] = {};
+        scanf("%s", cmdBuf);
+        if(0 == strcmp(cmdBuf, "exit"))
+        {
+            printf("退出cmdThread线程\n");
+            g_bRun = false;
+            return ;
+        }else if(0 == strcmp(cmdBuf, "login"))
+        {
+            Login login;
+            strcpy(login.userName, "clementine");
+            strcpy(login.PassWord, "1234");
+            send(sockfd, (const char*)&login, sizeof(Login), 0);
+        }else if(0 == strcmp(cmdBuf, "logout"))
+        {
+            Logout logout;
+            strcpy(logout.userName, "clementine");
+            send(sockfd, (const char*)&logout, sizeof(logout), 0);
+        }        
+    }
+
+}
+
 int main()
 {
     //1、建立一个socket
@@ -148,8 +178,11 @@ int main()
     {
         printf("连接成功！\n");
     }
-    
-    while(true)
+    //启动线程
+    std::thread t1(cmdThread, sockfd);
+    //考虑线程退出的问题
+    t1.detach();
+    while(g_bRun)
     {
 
         fd_set fdRead;
@@ -158,7 +191,7 @@ int main()
  
         FD_SET(sockfd, &fdRead);
 
-        timeval t {1, 0};
+        timeval t {10, 0};
         int ret = select(maxfd + 1, &fdRead, 0, 0, &t);
         if(ret < 0)
         {
@@ -175,11 +208,7 @@ int main()
                 break;
             }
         }
-        Login login;
-        strcpy(login.userName, "JMT");
-        strcpy(login.PassWord, "1234");
-        send(sockfd, (const char*)&login, sizeof(Login), 0);
-
+        printf("空闲时处理其他问题\n");
     }
     //7、close
     close(sockfd);
